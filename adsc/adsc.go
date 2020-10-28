@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,6 +27,7 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 
 	"istio.io/pkg/log"
 )
@@ -102,8 +104,16 @@ var (
 	ErrTimeout = errors.New("timeout")
 )
 
+var (
+	XCluster string //= flag.String("x-cluster", "", "")
+	XMeta    string //= flag.String("x-meta", "", "")
+)
+
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 func Dial(url string, opts *Config) (*ADSC, error) {
+	if XMeta != "" {
+		opts.Context = metadata.AppendToOutgoingContext(opts.Context, strings.Split(XMeta, ",")...)
+	}
 	adsc := &ADSC{
 		done:        make(chan error),
 		Updates:     make(chan string, 100),
@@ -126,6 +136,27 @@ func Dial(url string, opts *Config) (*ADSC, error) {
 		opts.Workload = "test-1"
 	}
 	adsc.Metadata = opts.Meta
+	if XCluster != "" {
+		cluster := strings.Split(XCluster, "/")
+		if adsc.Metadata == nil {
+			adsc.Metadata = make(map[string]interface{})
+		}
+		pmeta, _ := adsc.Metadata["PLATFORM_METADATA"].(map[string]interface{})
+		if pmeta == nil {
+			pmeta = make(map[string]interface{})
+			adsc.Metadata["PLATFORM_METADATA"] = pmeta
+		}
+		pmeta["gcp_project"] = cluster[0]
+		pmeta["gcp_location"] = cluster[1]
+		pmeta["gcp_gke_cluster_name"] = cluster[2]
+
+		lbls, _ := adsc.Metadata["LABELS"].(map[string]interface{})
+		if lbls == nil {
+			lbls = make(map[string]interface{})
+			adsc.Metadata["LABELS"] = lbls
+		}
+		lbls["istio.io/rev"] = "asm-managed"
+	}
 
 	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", opts.NodeType, opts.IP,
 		opts.Workload, opts.Namespace, opts.Namespace)

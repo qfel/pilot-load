@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/grpclog"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	"github.com/howardjohn/pilot-load/adsc"
 	"github.com/howardjohn/pilot-load/pkg/simulation"
 	"github.com/howardjohn/pilot-load/pkg/simulation/model"
 
@@ -49,6 +50,9 @@ func init() {
 	rootCmd.PersistentFlags().IntVar(&proberConfig.DelayThreshold, "prober.delay-threshold", proberConfig.DelayThreshold, "if set, there will be no delay until we have this many virtual services")
 	rootCmd.PersistentFlags().IntVar(&proberConfig.Replicas, "prober.replicas", proberConfig.Replicas, "number of virtual services to make")
 	rootCmd.PersistentFlags().StringVar(&proberConfig.GatewayAddress, "prober.address", proberConfig.GatewayAddress, "address to gateway")
+
+	rootCmd.PersistentFlags().StringVar(&adsc.XMeta, "x.meta", "", "")
+	rootCmd.PersistentFlags().StringVar(&adsc.XCluster, "x.cluster", "", "")
 }
 
 func defaultLogOptions() *log.Options {
